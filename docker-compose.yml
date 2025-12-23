@@ -1,0 +1,51 @@
+version: "3.9"
+name: task_manager
+
+services:
+  app:
+    build: .
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    container_name: task_manager_app
+
+  worker:
+    build: .
+    command: python -m worker.consumer
+    env_file: .env
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # metrics
+    container_name: task_manager_worker
+
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_USER: task_user
+      POSTGRES_PASSWORD: task_pass
+      POSTGRES_DB: tasks
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    container_name: task_manager_postgres
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+    container_name: task_manager_rabbitmq
+
+volumes:
+  pgdata:
